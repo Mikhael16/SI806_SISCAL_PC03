@@ -1,0 +1,240 @@
+================================================================================
+SISCAL - SISTEMA DE GESTION DE RECLAMOS - LUZ DEL SUR
+GUIA DE INSTALACION RAPIDA
+================================================================================
+
+REQUISITOS:
+- Python 3.8+
+- PostgreSQL 12+
+- pip
+
+================================================================================
+PASO 1: CREAR BASE DE DATOS
+================================================================================
+
+Abrir PowerShell como Administrador:
+
+psql -U postgres
+
+Dentro de psql ejecutar:
+
+CREATE DATABASE si806 ENCODING 'UTF8';
+\q
+
+(Si PostgreSQL esta en puerto 5433, usar: psql -U postgres -p 5433)
+
+================================================================================
+PASO 2: EJECUTAR SCRIPTS SQL
+================================================================================
+
+Navegar a la carpeta del proyecto:
+
+cd C:\ruta\a\tu\proyecto\SI806_SISCAL
+
+Ejecutar los scripts:
+
+psql -U postgres -d si806 -f sql\01_schema_postgres.sql
+psql -U postgres -d si806 -f sql\02_seed_postgres.sql
+
+(Si puerto 5433: agregar -p 5433 despues de postgres)
+
+================================================================================
+PASO 3: CONFIGURAR VARIABLES DE ENTORNO
+================================================================================
+
+Copiar archivo de plantilla:
+
+Copy-Item .env.example .env
+
+Editar .env con Notepad o editor de texto:
+
+notepad .env
+
+Modificar estas lineas:
+
+SECRET_KEY=cambiar_por_clave_segura_aleatoria_minimo_32_caracteres
+DB_PORT=5432
+DB_PASSWORD=tu_password_postgres_aqui
+
+(Si PostgreSQL usa puerto 5433, cambiar DB_PORT=5433)
+
+Para generar SECRET_KEY segura:
+
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+
+Copiar el resultado en SECRET_KEY.
+
+================================================================================
+PASO 4: INSTALAR DEPENDENCIAS
+================================================================================
+
+pip install -r requirements.txt
+
+(Si error de permisos: pip install --user -r requirements.txt)
+
+================================================================================
+PASO 5: EJECUTAR SERVIDOR
+================================================================================
+
+uvicorn app.main:app --reload
+
+Debe aparecer:
+INFO:     Uvicorn running on http://127.0.0.1:8000
+
+================================================================================
+PASO 6: ACCEDER AL SISTEMA
+================================================================================
+
+Abrir navegador:
+
+- Login: http://localhost:8000/index.html
+- Panel: http://localhost:8000/panel.html
+- API: http://localhost:8000/docs
+
+================================================================================
+CREAR PRIMER USUARIO
+================================================================================
+
+Opcion 1 - Desde el navegador:
+1. Ir a http://localhost:8000/index.html
+2. Clic en "Registrarse"
+3. Llenar formulario y enviar
+
+Opcion 2 - Desde PowerShell:
+
+$body = @{
+    email = "admin@luzdelsur.com.pe"
+    password = "Admin123456"
+    roles = @("ANALISTA")
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://localhost:8000/api/v1/auth/register" -Method POST -ContentType "application/json" -Body $body
+
+================================================================================
+ROLES DISPONIBLES
+================================================================================
+
+CLIENTE      - Usuario final
+ANALISTA     - Gestion de reclamos
+SUPERVISOR   - Supervision
+INTEGRADOR   - Integracion OSINERGMIN
+
+================================================================================
+SOLUCIÓN DE PROBLEMAS
+================================================================================
+
+ERROR: ModuleNotFoundError: No module named 'app'
+SOLUCION: Ejecutar uvicorn desde la carpeta raiz del proyecto
+
+ERROR: could not connect to server
+SOLUCION: PostgreSQL no esta ejecutandose o puerto incorrecto en .env
+
+ERROR: password authentication failed
+SOLUCION: Verificar DB_PASSWORD en archivo .env
+
+ERROR: relation 'usuario' does not exist
+SOLUCION: Ejecutar nuevamente los scripts SQL del PASO 2
+
+ERROR: Puerto 8000 en uso
+SOLUCION: uvicorn app.main:app --reload --port 8001
+
+================================================================================
+DETENER SERVIDOR
+================================================================================
+
+En la ventana PowerShell donde corre uvicorn: presionar CTRL + C
+
+================================================================================
+VERIFICAR INSTALACION
+================================================================================
+
+Comandos de verificacion:
+
+python --version          # Debe mostrar Python 3.8+
+psql --version           # Debe mostrar PostgreSQL 12+
+pip list                 # Debe listar fastapi, uvicorn, etc.
+
+Verificar base de datos:
+
+psql -U postgres -d si806 -c "\dt"
+
+Debe mostrar 5 tablas: rol, usuario, usuario_rol, refresh_token, login_historial
+
+================================================================================
+ENDPOINTS PRINCIPALES
+================================================================================
+
+POST /api/v1/auth/register    - Registrar usuario
+POST /api/v1/auth/login       - Iniciar sesion
+GET  /api/v1/auth/me          - Info usuario actual (requiere token)
+POST /api/v1/auth/refresh     - Refrescar token
+GET  /api/v1/info/services    - Listar servicios
+GET  /health                  - Health check
+
+================================================================================
+ESTRUCTURA DE ARCHIVOS
+================================================================================
+
+SI806_SISCAL/
+├── app/                    # Backend (Python/FastAPI)
+│   ├── main.py            # Aplicacion principal
+│   ├── api/v1/            # Endpoints REST
+│   ├── core/              # Configuracion
+│   ├── models/            # Tablas de BD
+│   └── services/          # Logica de negocio
+├── frontend/              # Frontend (HTML/JS)
+│   ├── index.html         # Login
+│   └── panel.html         # Dashboard
+├── sql/                   # Scripts de BD
+├── .env                   # Configuracion (NO SUBIR A GIT)
+└── requirements.txt       # Dependencias Python
+
+================================================================================
+DATOS DE CONEXION POR DEFECTO
+================================================================================
+
+PostgreSQL:
+  Host: localhost
+  Puerto: 5432 (o 5433)
+  Base de datos: si806
+  Usuario: postgres
+  Password: (el que configuraste)
+
+Servidor Web:
+  URL: http://localhost:8000
+  Puerto: 8000
+
+JWT:
+  Expiracion Access Token: 15 minutos
+  Expiracion Refresh Token: 7 dias
+
+================================================================================
+NOTAS DE SEGURIDAD
+================================================================================
+
+1. Cambiar SECRET_KEY en .env por una clave aleatoria segura
+2. No compartir el archivo .env
+3. Las contraseñas se almacenan hasheadas con bcrypt
+4. Los tokens JWT expiran automaticamente
+5. Usar HTTPS en produccion
+
+================================================================================
+COMANDOS RAPIDOS
+================================================================================
+
+Iniciar servidor:
+uvicorn app.main:app --reload
+
+Crear usuario desde API:
+$body = @{email="test@mail.com"; password="Pass123"; roles=@("CLIENTE")} | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:8000/api/v1/auth/register" -Method POST -ContentType "application/json" -Body $body
+
+Login desde API:
+$body = @{email="test@mail.com"; password="Pass123"} | ConvertTo-Json
+$response = Invoke-RestMethod -Uri "http://localhost:8000/api/v1/auth/login" -Method POST -ContentType "application/json" -Body $body
+$token = $response.access_token
+
+Usar token:
+$headers = @{Authorization = "Bearer $token"}
+Invoke-RestMethod -Uri "http://localhost:8000/api/v1/auth/me" -Headers $headers
+

@@ -1,0 +1,379 @@
+================================================================================
+SISCAL - CONEXION A BASE DE DATOS
+GUIA TECNICA DE CONFIGURACION Y DESPLIEGUE
+================================================================================
+
+COMO FUNCIONA LA CONEXION A BASE DE DATOS
+================================================================================
+
+El proyecto utiliza SQLAlchemy como ORM (Object-Relational Mapping) para
+conectarse a PostgreSQL. La configuracion se realiza en 3 archivos:
+
+1. .env (Variables de entorno)
+2. app/core/config.py (Configuracion centralizada)
+3. app/db/session.py (Motor de conexion)
+
+================================================================================
+PASO 1: CONFIGURAR VARIABLES DE ENTORNO (.env)
+================================================================================
+
+El archivo .env contiene las credenciales de conexion:
+
+DB_ENGINE=postgres
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=si806
+DB_USER=postgres
+DB_PASSWORD=tu_password_aqui
+
+IMPORTANTE: Este archivo NO debe subirse a repositorios publicos.
+
+PARAMETROS EXPLICADOS:
+
+DB_ENGINE   = Tipo de motor (postgres, mysql, sqlite)
+DB_HOST     = Direccion del servidor PostgreSQL
+              - localhost (desarrollo local)
+              - IP del servidor (ejemplo: 192.168.1.100)
+              - Dominio (ejemplo: db.miempresa.com)
+
+DB_PORT     = Puerto de PostgreSQL
+              - 5432 (puerto por defecto)
+              - 5433 (puerto alternativo comun)
+
+DB_NAME     = Nombre de la base de datos (debe existir previamente)
+DB_USER     = Usuario de PostgreSQL con permisos
+DB_PASSWORD = Contraseña del usuario
+
+================================================================================
+PASO 2: COMO SE CONSTRUYE LA CADENA DE CONEXION
+================================================================================
+
+El archivo app/db/session.py construye la URL de conexion:
+
+postgresql://usuario:password@host:puerto/base_de_datos?client_encoding=utf8
+
+Ejemplo real:
+postgresql://postgres:123456@localhost:5432/si806?client_encoding=utf8
+
+CARACTERISTICAS DE LA CONEXION:
+
+1. PASSWORD ENCODING
+   La contraseña se codifica usando urllib.parse.quote_plus() para manejar
+   caracteres especiales como @, #, %, etc.
+
+2. CLIENT ENCODING
+   Se especifica UTF-8 para soportar caracteres especiales en español.
+
+3. POOL PRE PING
+   Verifica que la conexion este activa antes de usarla.
+
+4. ISOLATION LEVEL
+   Se usa AUTOCOMMIT para manejar transacciones automaticamente.
+
+================================================================================
+PASO 3: COMO SE USA LA CONEXION EN EL CODIGO
+================================================================================
+
+OPCION 1: Dependency Injection (Recomendado)
+
+En los endpoints FastAPI:
+
+from sqlalchemy.orm import Session
+from app.db.session import get_db
+
+@router.get("/usuarios")
+def listar_usuarios(db: Session = Depends(get_db)):
+    usuarios = db.query(Usuario).all()
+    return usuarios
+
+OPCION 2: Uso Directo
+
+from app.db.session import SessionLocal
+
+db = SessionLocal()
+try:
+    usuarios = db.query(Usuario).all()
+finally:
+    db.close()
+
+================================================================================
+ESCENARIOS DE DESPLIEGUE
+================================================================================
+
+ESCENARIO 1: DESARROLLO LOCAL
+------------------------------
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=si806
+DB_USER=postgres
+DB_PASSWORD=123456
+
+PostgreSQL instalado en la misma maquina que el proyecto.
+
+
+ESCENARIO 2: SERVIDOR DEDICADO
+-------------------------------
+DB_HOST=192.168.1.100
+DB_PORT=5432
+DB_NAME=si806_prod
+DB_USER=app_user
+DB_PASSWORD=ClaveSegura2024!
+
+PostgreSQL en un servidor separado en la red local.
+
+
+ESCENARIO 3: SERVIDOR EN LA NUBE (AWS RDS, Azure, etc.)
+--------------------------------------------------------
+DB_HOST=siscal-db.abc123.us-east-1.rds.amazonaws.com
+DB_PORT=5432
+DB_NAME=si806_prod
+DB_USER=admin
+DB_PASSWORD=ClaveSeguraEnLaNube2024!
+
+PostgreSQL como servicio administrado en la nube.
+
+
+ESCENARIO 4: DOCKER COMPOSE
+----------------------------
+DB_HOST=postgres-container
+DB_PORT=5432
+DB_NAME=si806
+DB_USER=postgres
+DB_PASSWORD=postgres
+
+PostgreSQL ejecutandose en un contenedor Docker.
+El host es el nombre del servicio en docker-compose.yml
+
+
+ESCENARIO 5: PUERTO NO ESTANDAR
+--------------------------------
+DB_HOST=localhost
+DB_PORT=5433
+DB_NAME=si806
+DB_USER=postgres
+DB_PASSWORD=123456
+
+Cuando PostgreSQL esta en un puerto diferente al 5432.
+
+================================================================================
+VERIFICAR CONEXION A BASE DE DATOS
+================================================================================
+
+METODO 1: Desde psql (Cliente PostgreSQL)
+
+psql -h localhost -p 5432 -U postgres -d si806
+
+Si se conecta exitosamente, la configuracion es correcta.
+
+
+METODO 2: Desde Python
+
+Crear archivo: test_conexion.py
+
+from app.db.session import engine
+
+try:
+    with engine.connect() as connection:
+        result = connection.execute("SELECT 1")
+        print("Conexion exitosa!")
+        print("Resultado:", result.fetchone())
+except Exception as e:
+    print("Error de conexion:", str(e))
+
+Ejecutar:
+python test_conexion.py
+
+
+METODO 3: Desde el servidor FastAPI
+
+Iniciar el servidor:
+uvicorn app.main:app --reload
+
+Si no hay errores al iniciar, la conexion es correcta.
+Probar endpoint de health:
+http://localhost:8000/health
+
+================================================================================
+PROBLEMAS COMUNES Y SOLUCIONES
+================================================================================
+
+PROBLEMA 1: "could not connect to server: Connection refused"
+CAUSA: PostgreSQL no esta ejecutandose o host/puerto incorrectos
+SOLUCION:
+1. Verificar que PostgreSQL este ejecutandose:
+   Windows: Servicios -> postgresql
+   Linux: sudo systemctl status postgresql
+2. Verificar DB_HOST y DB_PORT en .env
+
+PROBLEMA 2: "FATAL: password authentication failed"
+CAUSA: Usuario o contraseña incorrectos
+SOLUCION:
+1. Verificar DB_USER y DB_PASSWORD en .env
+2. Verificar que el usuario tenga permisos en la BD
+
+PROBLEMA 3: "FATAL: database 'si806' does not exist"
+CAUSA: La base de datos no fue creada
+SOLUCION:
+1. Crear la base de datos:
+   psql -U postgres
+   CREATE DATABASE si806 ENCODING 'UTF8';
+2. Ejecutar scripts SQL:
+   psql -U postgres -d si806 -f sql\01_schema_postgres.sql
+   psql -U postgres -d si806 -f sql\02_seed_postgres.sql
+
+PROBLEMA 4: "relation 'usuario' does not exist"
+CAUSA: Las tablas no fueron creadas
+SOLUCION:
+Ejecutar scripts SQL:
+psql -U postgres -d si806 -f sql\01_schema_postgres.sql
+
+PROBLEMA 5: "SSLError" o "SSL connection has been closed unexpectedly"
+CAUSA: Problemas con SSL en la conexion
+SOLUCION:
+Agregar parametro sslmode en DATABASE_URL:
+?client_encoding=utf8&sslmode=disable
+
+O para produccion con SSL:
+?client_encoding=utf8&sslmode=require
+
+================================================================================
+CONFIGURACION PARA PRODUCCION
+================================================================================
+
+MEJORES PRACTICAS:
+
+1. NO USAR USUARIO ROOT/POSTGRES
+   Crear un usuario especifico para la aplicacion:
+   
+   CREATE USER app_siscal WITH PASSWORD 'ClaveSegura2024!';
+   GRANT ALL PRIVILEGES ON DATABASE si806 TO app_siscal;
+
+2. USAR CONTRASEÑAS FUERTES
+   Minimo 16 caracteres con mayusculas, minusculas, numeros y simbolos.
+
+3. VARIABLES DE ENTORNO DEL SISTEMA
+   En lugar de archivo .env, usar variables de entorno del sistema:
+   
+   Windows:
+   setx DB_PASSWORD "ClaveSegura2024!"
+   
+   Linux:
+   export DB_PASSWORD="ClaveSegura2024!"
+
+4. CONEXIONES SSL
+   Para produccion, forzar conexiones SSL:
+   
+   DATABASE_URL = f"postgresql://...?sslmode=require"
+
+5. CONNECTION POOLING
+   Configurar pool de conexiones en session.py:
+   
+   engine = create_engine(
+       DATABASE_URL,
+       pool_size=10,          # Numero de conexiones permanentes
+       max_overflow=20,       # Conexiones adicionales permitidas
+       pool_pre_ping=True,
+       pool_recycle=3600      # Reciclar conexiones cada hora
+   )
+
+6. BACKUP AUTOMATICO
+   Configurar backups diarios de la base de datos:
+   
+   pg_dump -U postgres -d si806 > backup_$(date +%Y%m%d).sql
+
+================================================================================
+MIGRACIONES DE BASE DE DATOS (FUTURO)
+================================================================================
+
+Para cambios en la estructura de BD, se recomienda usar Alembic:
+
+pip install alembic
+
+alembic init migrations
+alembic revision --autogenerate -m "crear_tabla_reclamos"
+alembic upgrade head
+
+Esto permite versionar y aplicar cambios en la BD de forma controlada.
+
+================================================================================
+MONITOREO DE CONEXIONES
+================================================================================
+
+CONSULTA POSTGRES: Ver conexiones activas
+
+SELECT 
+    datname, 
+    usename, 
+    client_addr, 
+    state, 
+    query
+FROM pg_stat_activity
+WHERE datname = 'si806';
+
+LOGS DE FASTAPI:
+
+El servidor FastAPI muestra errores de conexion en la consola:
+- Errores de timeout
+- Errores de autenticacion
+- Errores de queries SQL
+
+================================================================================
+RESUMEN: CHECKLIST DE DESPLIEGUE
+================================================================================
+
+[ ] PostgreSQL instalado y ejecutandose
+[ ] Base de datos 'si806' creada
+[ ] Scripts SQL ejecutados (01_schema, 02_seed)
+[ ] Archivo .env creado y configurado
+[ ] DB_HOST correcto (localhost, IP, o dominio)
+[ ] DB_PORT correcto (5432 o custom)
+[ ] DB_NAME correcto (si806)
+[ ] DB_USER con permisos en la BD
+[ ] DB_PASSWORD correcto
+[ ] SECRET_KEY generado (production)
+[ ] Conexion probada con psql
+[ ] Servidor FastAPI inicia sin errores
+[ ] Endpoint /health responde correctamente
+[ ] Login funciona correctamente
+
+================================================================================
+ARQUITECTURA DE LA CONEXION
+================================================================================
+
+Cliente HTTP (Navegador/API)
+    |
+    v
+FastAPI Endpoint (routes_auth.py)
+    |
+    v
+Service Layer (auth_service.py)
+    |
+    v
+Repository Layer (usuarios.py)
+    |
+    v
+SQLAlchemy Session (get_db)
+    |
+    v
+Database Connection Pool
+    |
+    v
+PostgreSQL Server (si806)
+
+Cada capa tiene responsabilidades especificas:
+- Routes: Validacion de entrada HTTP
+- Services: Logica de negocio
+- Repositories: Queries SQL
+- Session: Manejo de conexiones
+- Pool: Optimizacion de conexiones
+
+================================================================================
+CONTACTO
+================================================================================
+
+Para soporte tecnico sobre configuracion de base de datos, contactar al
+equipo de desarrollo de Luz del Sur.
+
+Copyright 2025 Luz del Sur. Todos los derechos reservados.
+
+================================================================================
