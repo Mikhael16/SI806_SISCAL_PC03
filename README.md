@@ -1,5 +1,4 @@
 # SISCAL - Sistema de Gestion de Reclamos
-## Luz del Sur
 
 Sistema de autenticacion JWT con arquitectura por capas, panel de servicios y gestion de usuarios.
 
@@ -439,16 +438,10 @@ Para detener el servidor uvicorn:
 - Las contraseñas se almacenan hasheadas con bcrypt
 - Los tokens JWT expiran en 15 minutos (configurable)
 - Los refresh tokens expiran en 7 dias
-- Nunca compartir el archivo .env ni subirlo a repositorios publicos
-
----
-
-## CONTACTO Y SOPORTE
-
-Para consultas tecnicas sobre este proyecto, contactar al equipo de desarrollo de Luz del Sur.
+- Nunca compartir el archivo .env ni subirlo a repositorios publico
 
 ---
 
 ## LICENCIA
 
-Copyright 2025 Luz del Sur. Todos los derechos reservados.
+El fin de este trabajo es absolutamente académico, Luz del Sur es la empresa de objeto en estudio, más no es ningún responsable de este trabajo académico
