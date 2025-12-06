@@ -614,20 +614,5 @@ https://plugins.jenkins.io/
 Tutoriales de CI/CD:
 https://www.jenkins.io/doc/tutorials/
 
-================================================================================
-CONTACTO Y SOPORTE
-================================================================================
-
-Para consultas sobre Jenkins en el proyecto SISCAL:
-Equipo de DevOps - Luz del Sur
-Email: devops@luzdelsur.com.pe
-
-GitHub: https://github.com/Mikhael16/SI806_SISCAL_PC03
-
-================================================================================
-LICENCIA
-================================================================================
-
-Copyright 2025 Luz del Sur. Todos los derechos reservados.
 
 Jenkins es software libre bajo licencia MIT.
