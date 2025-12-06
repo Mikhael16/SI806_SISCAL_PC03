@@ -421,15 +421,200 @@ Esto hace que Jenkins ejecute el pipeline automáticamente cada vez que hay un `
 - ✅ **Definition:** Pipeline script from SCM
 - ✅ **SCM:** Git
 - ✅ **Repository URL:** `https://github.com/Mikhael16/SI806_SISCAL_PC03.git`
-- ✅ **Credentials:** (Crear una nueva credential con tu token de GitHub)
+- ✅ **Credentials:** (Crear una nueva credential con tu token de GitHub - **ver instrucciones detalladas abajo**)
 - ✅ **Branch Specifier:** `*/main`
 - ✅ **Script Path:** `Jenkinsfile`
+
+---
+
+#### **📝 CÓMO CREAR LA CREDENTIAL DE GITHUB (PASO A PASO)**
+
+Cuando haces clic en **"Add"** para agregar credentials, verás un formulario. Sigue estos pasos:
+
+**1. Cambiar el tipo de credential:**
+   - En el campo **"Kind"**, despliega el menú
+   - ❌ **NO selecciones** "GitHub App"
+   - ✅ **Selecciona:** **"Username with password"**
+
+**2. Rellenar el formulario:**
+
+| Campo | Qué rellenar |
+|-------|-------------|
+| **Domain** | Dejar en: `Global credentials (unrestricted)` |
+| **Kind** | `Username with password` |
+| **Scope** | `Global (Jenkins, nodes, items, all child items, etc)` |
+| **Username** | Tu usuario de GitHub: `Mikhael16` |
+| **Password** | Tu token de GitHub (el que generaste, ejemplo: `ghp_xxxxxxxxxxxx`) |
+| **ID** | `github-token` (o déjalo vacío, se genera automático) |
+| **Description** | `GitHub Personal Access Token - SISCAL` |
+
+**3. Clic en "Add"**
+
+**4. Volver a la configuración del Pipeline:**
+   - Ahora en el campo **"Credentials"**, selecciona la credential que acabas de crear
+   - Debería aparecer como: `Mikhael16/****** (GitHub Personal Access Token - SISCAL)`
+
+---
+
+#### **🔑 Cómo generar el token de GitHub (si aún no lo tienes)**
+
+1. Ve a GitHub: https://github.com/settings/tokens
+2. Clic en **"Generate new token"** → **"Generate new token (classic)"**
+3. Configurar el token:
+   - **Note:** `Jenkins SISCAL Pipeline`
+   - **Expiration:** 90 days (o el que prefieras)
+   - **Select scopes:**
+     - ✅ `repo` (todos los sub-checkboxes)
+     - ✅ `admin:repo_hook` (para webhooks)
+4. Clic en **"Generate token"**
+5. **COPIAR EL TOKEN** (se ve solo una vez): `ghp_xxxxxxxxxxxxxxxxxxxxx`
+6. Usar ese token en el campo **"Password"** de Jenkins
+
+---
+
+#### **⚠️ Troubleshooting**
+
+**Si ves "Failed to connect to repository":**
+
+1. Verifica que el token tenga los permisos `repo` y `admin:repo_hook`
+2. Verifica que el username sea exactamente: `Mikhael16`
+3. Verifica que la URL del repo sea: `https://github.com/Mikhael16/SI806_SISCAL_PC03.git`
+4. Si el repositorio es privado, asegúrate que el token tenga acceso
+
+**Si aparece "invalid credentials":**
+
+1. Regenera el token en GitHub
+2. Copia el nuevo token
+3. Edita la credential en Jenkins (clic en el ícono de lápiz)
+4. Pega el nuevo token en el campo **"Password"**
 
 ---
 
 ### **Paso 3: Configurar Webhook en GitHub**
 
 Para que GitHub notifique a Jenkins automáticamente:
+
+#### **🌐 Opción 1: Jenkins en Máquina Local (Recomendado para desarrollo)**
+
+Si Jenkins está corriendo en tu computadora (localhost), GitHub no puede llegar a él directamente. Necesitas usar **ngrok** para exponer Jenkins a internet temporalmente:
+
+**1. Instalar ngrok:**
+```powershell
+# Descargar desde https://ngrok.com/download
+# O usar winget (Windows 11):
+winget install ngrok
+
+# O usar Chocolatey:
+choco install ngrok
+```
+
+**2. Crear cuenta gratuita en ngrok:**
+- Ve a: https://dashboard.ngrok.com/signup
+- Crea cuenta gratuita
+- Copia tu token de autenticación
+
+**3. Configurar ngrok con tu token:**
+```powershell
+ngrok config add-authtoken TU_TOKEN_DE_NGROK
+```
+
+**4. Exponer Jenkins (puerto 8080):**
+```powershell
+ngrok http 8080
+```
+
+**5. Verás algo como esto:**
+```
+ngrok
+
+Session Status                online
+Account                       Mikhael16 (Plan: Free)
+Version                       3.5.0
+Region                        United States (us)
+Latency                       45ms
+Web Interface                 http://127.0.0.1:4040
+Forwarding                    https://abc123xyz.ngrok-free.app -> http://localhost:8080
+
+Connections                   ttl     opn     rt1     rt5     p50     p90
+                              0       0       0.00    0.00    0.00    0.00
+```
+
+**6. Copiar la URL de Forwarding:**
+   - En este ejemplo: `https://abc123xyz.ngrok-free.app`
+   - **Esta es tu URL pública temporal**
+
+**7. Configurar Webhook en GitHub:**
+   - **Payload URL:** `https://abc123xyz.ngrok-free.app/github-webhook/`
+   - **Content type:** `application/json`
+   - **Events:** Just the push event
+   - **Active:** ✅
+
+**📝 Notas importantes sobre ngrok:**
+- ✅ Gratis y fácil de usar
+- ⚠️ La URL cambia cada vez que reinicias ngrok (en plan gratuito)
+- ⚠️ Debes mantener ngrok corriendo mientras trabajas
+- ⚠️ Debes actualizar el webhook en GitHub si la URL cambia
+
+---
+
+#### **🌐 Opción 2: Jenkins en Servidor con IP Pública**
+
+Si Jenkins está en un servidor con IP pública (VPS, AWS, etc.):
+
+**1. Obtener tu IP pública:**
+```powershell
+# Método 1: Desde PowerShell
+(Invoke-WebRequest -Uri "https://api.ipify.org").Content
+
+# Método 2: Desde navegador
+# Ir a: https://www.whatismyip.com/
+
+# Método 3: Desde CMD
+curl https://api.ipify.org
+```
+
+**2. Verificar que el puerto 8080 esté abierto:**
+```powershell
+# Si usas firewall de Windows, abrir puerto:
+New-NetFirewallRule -DisplayName "Jenkins" -Direction Inbound -LocalPort 8080 -Protocol TCP -Action Allow
+```
+
+**3. Configurar Webhook en GitHub:**
+   - **Payload URL:** `http://TU_IP_PUBLICA:8080/github-webhook/`
+   - Ejemplo: `http://192.168.1.100:8080/github-webhook/`
+
+---
+
+#### **🌐 Opción 3: Usar Poll SCM (Sin Webhook)**
+
+Si no puedes exponer Jenkins a internet, usa **polling** (Jenkins revisa GitHub cada X minutos):
+
+**1. En la configuración del Pipeline:**
+   - **Build Triggers:**
+   - ❌ Desmarcar: "GitHub hook trigger for GITScm polling"
+   - ✅ Marcar: **"Poll SCM"**
+   - En "Schedule", poner: `H/5 * * * *` (revisa cada 5 minutos)
+
+**Desventajas:**
+- ❌ No es instantáneo (espera hasta 5 minutos)
+- ❌ Consume recursos revisando GitHub constantemente
+- ✅ Ventaja: No necesitas IP pública ni ngrok
+
+---
+
+#### **🎯 Recomendación para SISCAL**
+
+Para desarrollo local (tu caso actual):
+
+1. **Instalar ngrok** (5 minutos)
+2. **Exponer Jenkins:** `ngrok http 8080`
+3. **Copiar URL de ngrok:** `https://abc123.ngrok-free.app`
+4. **Configurar webhook en GitHub:**
+   ```
+   Payload URL: https://abc123.ngrok-free.app/github-webhook/
+   ```
+
+**Pasos detallados para configurar el webhook:**
 
 1. **Ir a tu repositorio en GitHub:**
    ```
@@ -438,19 +623,25 @@ Para que GitHub notifique a Jenkins automáticamente:
 
 2. **Settings → Webhooks → Add webhook**
 
-3. **Configurar webhook:**
-   - **Payload URL:** `http://<tu-ip-publica>:8080/github-webhook/`
+3. **Rellenar el formulario:**
+   - **Payload URL:** `https://TU-URL-DE-NGROK.ngrok-free.app/github-webhook/`
    - **Content type:** `application/json`
-   - **Events:** Just the push event
-   - **Active:** ✅
+   - **Secret:** (dejar vacío por ahora)
+   - **SSL verification:** Enable SSL verification
+   - **Which events would you like to trigger this webhook?**
+     - Seleccionar: **Just the push event**
+   - **Active:** ✅ Marcar
 
-4. **Save webhook**
+4. **Add webhook**
 
-**📝 Nota:** Si Jenkins está en tu máquina local, necesitarás exponer el puerto 8080 con ngrok o similar:
-```bash
-ngrok http 8080
-# Usar la URL de ngrok en el webhook
-```
+5. **Verificar que funciona:**
+   - Hacer un push de prueba:
+   ```bash
+   git commit --allow-empty -m "test: trigger Jenkins"
+   git push origin main
+   ```
+   - Jenkins debería iniciar el pipeline automáticamente
+   - En GitHub → Settings → Webhooks → Ver "Recent Deliveries" (debe aparecer con ✅)
 
 ---
 
