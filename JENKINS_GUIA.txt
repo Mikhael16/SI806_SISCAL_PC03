@@ -1,0 +1,633 @@
+================================================================================
+JENKINS PARA SISCAL - GUIA COMPLETA DE CI/CD
+AUTOMATIZACION DE DESPLIEGUES CON JENKINS
+================================================================================
+
+BENEFICIOS DE TIEMPO Y EFICIENCIA
+================================================================================
+
+SIN JENKINS (PROCESO MANUAL):
+- Pull del repositorio: 30 segundos
+- Instalar dependencias: 2-3 minutos
+- Ejecutar tests manualmente: 1-2 minutos
+- Construir imagen Docker: 3-5 minutos
+- Deploy manual: 1-2 minutos
+- Verificacion manual: 1 minuto
+- Documentar deployment: 1 minuto
+TOTAL POR DESPLIEGUE: 8-14 minutos + atencion continua del desarrollador
+
+Problemas adicionales:
+- Riesgo de olvidar pasos
+- Errores de configuracion
+- No hay historial automatico
+- Requiere presencia constante del equipo
+
+CON JENKINS (PROCESO AUTOMATIZADO):
+- Push a GitHub: 10 segundos
+- Jenkins detecta cambios automaticamente
+- Pipeline completo: 5-8 minutos (desatendido)
+- Notificacion automatica al finalizar
+TOTAL TRABAJO HUMANO: 10 segundos
+
+Beneficios adicionales:
++ Tests automaticos en cada cambio
++ Historial completo de deployments
++ Rollback automatico en caso de fallo
++ Notificaciones al equipo
++ Metricas y reportes
+
+AHORRO: ~90% del tiempo del desarrollador por deployment
+AHORRO MENSUAL: Si 20 deployments/mes = 160-280 minutos ahorrados
+AHORRO ANUAL: ~32-56 horas de trabajo
+
+================================================================================
+QUE ES JENKINS Y COMO FUNCIONA
+================================================================================
+
+Jenkins es un servidor de automatizacion que:
+1. Monitorea tu repositorio GitHub continuamente
+2. Detecta cuando hay un push/commit nuevo
+3. Ejecuta automaticamente un pipeline de tareas (build, test, deploy)
+4. Notifica al equipo del resultado
+
+COMPONENTES CLAVE:
+
+JENKINSFILE:
+- Define el pipeline (que pasos ejecutar)
+- Esta en tu repositorio (versionado con el codigo)
+- Escrito en sintaxis Groovy (similar a scripting)
+
+PIPELINE:
+- Secuencia de STAGES (etapas)
+- Cada stage tiene STEPS (pasos/comandos)
+- Ejemplo: Checkout → Test → Build → Deploy
+
+AGENT:
+- Donde se ejecuta el pipeline
+- Puede ser el servidor Jenkins o maquinas remotas
+
+WORKSPACE:
+- Directorio temporal donde Jenkins clona tu repo y trabaja
+
+================================================================================
+REQUISITOS PREVIOS
+================================================================================
+
+1. Docker instalado y corriendo
+2. Jenkins instalado (ver instrucciones abajo)
+3. Repositorio en GitHub: https://github.com/Mikhael16/SI806_SISCAL_PC03
+4. Puerto 8080 disponible para Jenkins
+5. Puerto 8000 disponible para SISCAL
+
+================================================================================
+INSTALACION DE JENKINS
+================================================================================
+
+OPCION 1: JENKINS CON DOCKER (RECOMENDADO)
+-------------------------------------------
+
+1. CREAR CONTENEDOR DE JENKINS
+
+docker run -d \
+  --name jenkins \
+  -p 8080:8080 \
+  -p 50000:50000 \
+  -v jenkins_home:/var/jenkins_home \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  jenkins/jenkins:lts
+
+En Windows PowerShell:
+docker run -d --name jenkins -p 8080:8080 -p 50000:50000 -v jenkins_home:/var/jenkins_home jenkins/jenkins:lts
+
+2. ESPERAR A QUE JENKINS INICIE (1-2 minutos)
+
+3. OBTENER PASSWORD INICIAL
+
+docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+
+Copiar el password que aparece.
+
+4. ABRIR JENKINS EN NAVEGADOR
+
+http://localhost:8080
+
+5. PEGAR PASSWORD INICIAL
+
+6. INSTALAR PLUGINS SUGERIDOS
+
+Hacer clic en "Install suggested plugins"
+Esperar 5-10 minutos.
+
+7. CREAR USUARIO ADMINISTRADOR
+
+Usuario: admin
+Password: admin123 (cambiar en produccion)
+Email: admin@luzdelsur.com.pe
+
+8. CONFIGURAR URL DE JENKINS
+
+Dejar por defecto: http://localhost:8080/
+
+
+OPCION 2: JENKINS INSTALACION NATIVA (WINDOWS)
+-----------------------------------------------
+
+1. DESCARGAR JENKINS
+
+https://www.jenkins.io/download/
+
+Descargar: jenkins.msi (Windows Installer)
+
+2. EJECUTAR INSTALADOR
+
+- Siguiente, Siguiente
+- Puerto: 8080
+- Java se instala automaticamente
+
+3. ABRIR http://localhost:8080
+
+4. SEGUIR PASOS 3-8 DE LA OPCION 1
+
+
+OPCION 3: JENKINS EN LINUX
+---------------------------
+
+sudo apt update
+sudo apt install openjdk-11-jdk
+wget -q -O - https://pkg.jenkins.io/debian/jenkins.io.key | sudo apt-key add -
+sudo sh -c 'echo deb http://pkg.jenkins.io/debian-stable binary/ > /etc/apt/sources.list.d/jenkins.list'
+sudo apt update
+sudo apt install jenkins
+sudo systemctl start jenkins
+sudo systemctl enable jenkins
+
+Abrir: http://localhost:8080
+Password inicial: sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+
+================================================================================
+CONFIGURACION DE JENKINS PARA SISCAL
+================================================================================
+
+PASO 1: INSTALAR PLUGINS NECESARIOS
+------------------------------------
+
+1. Ir a: Jenkins → Manage Jenkins → Manage Plugins
+2. Pestaña "Available"
+3. Buscar e instalar:
+   - Git Plugin (ya viene instalado)
+   - GitHub Integration Plugin
+   - Docker Plugin
+   - Docker Pipeline Plugin
+   - Pipeline Plugin (ya viene instalado)
+   - Email Extension Plugin (para notificaciones)
+
+4. Reiniciar Jenkins: http://localhost:8080/restart
+
+
+PASO 2: CONFIGURAR CREDENCIALES DE GITHUB
+------------------------------------------
+
+1. Ir a: Jenkins → Manage Jenkins → Manage Credentials
+2. Clic en "(global)"
+3. Clic en "Add Credentials"
+4. Tipo: "Username with password"
+5. Username: Mikhael16
+6. Password: [Tu token de GitHub]
+   Para crear token: GitHub → Settings → Developer settings → 
+   Personal access tokens → Generate new token
+   Permisos: repo (todos)
+7. ID: github-credentials
+8. Guardar
+
+
+PASO 3: CREAR JOB DE PIPELINE
+------------------------------
+
+1. Ir a: Jenkins Dashboard
+2. Clic en "New Item"
+3. Nombre: SISCAL-Pipeline
+4. Tipo: "Pipeline"
+5. Clic en "OK"
+
+6. CONFIGURACION DEL JOB:
+
+En la seccion "General":
+- Description: Pipeline automatizado para SISCAL - Luz del Sur
+
+En la seccion "Build Triggers":
+- ☑ GitHub hook trigger for GITScm polling
+
+En la seccion "Pipeline":
+- Definition: "Pipeline script from SCM"
+- SCM: Git
+- Repository URL: https://github.com/Mikhael16/SI806_SISCAL_PC03.git
+- Credentials: github-credentials
+- Branch: */main
+- Script Path: Jenkinsfile
+
+7. Guardar
+
+
+PASO 4: CONFIGURAR WEBHOOK EN GITHUB
+-------------------------------------
+
+1. Ir a: https://github.com/Mikhael16/SI806_SISCAL_PC03
+2. Settings → Webhooks → Add webhook
+3. Payload URL: http://TU_IP_PUBLICA:8080/github-webhook/
+   (Si Jenkins esta en tu PC, usar ngrok o exponer puerto)
+4. Content type: application/json
+5. Eventos: "Just the push event"
+6. Active: ☑
+7. Add webhook
+
+NOTA: Si Jenkins esta en localhost, necesitas exponer el puerto 8080
+usando ngrok o configurar port forwarding en tu router.
+
+
+PASO 5: CONFIGURAR NOTIFICACIONES POR EMAIL (OPCIONAL)
+-------------------------------------------------------
+
+1. Manage Jenkins → Configure System
+2. Buscar "Extended E-mail Notification"
+3. SMTP server: smtp.gmail.com
+4. SMTP Port: 465
+5. Usar SSL: ☑
+6. Credentials: Agregar email y app password de Gmail
+7. Default Recipients: equipo@luzdelsur.com.pe
+8. Guardar
+
+Para Gmail App Password:
+Google Account → Security → 2-Step Verification → App passwords
+
+================================================================================
+ESTRUCTURA DEL JENKINSFILE
+================================================================================
+
+El Jenkinsfile define 11 ETAPAS (stages):
+
+ETAPA 1: Checkout
+- Descarga codigo desde GitHub
+- Tiempo: ~10 segundos
+
+ETAPA 2: Verificar Dependencias
+- Verifica que Docker, Python esten instalados
+- Tiempo: ~5 segundos
+
+ETAPA 3: Linting y Validacion
+- Valida calidad de codigo con flake8
+- Detecta errores de sintaxis
+- Tiempo: ~30 segundos
+
+ETAPA 4: Tests Unitarios
+- Ejecuta pytest con los tests del proyecto
+- Tiempo: ~1-2 minutos
+
+ETAPA 5: Detener Contenedores Antiguos
+- Baja contenedores de despliegues anteriores
+- Tiempo: ~10 segundos
+
+ETAPA 6: Construir Imagen Docker
+- Construye nueva imagen con docker-compose build
+- Tiempo: ~3-5 minutos (primera vez), ~1 min (subsecuentes)
+
+ETAPA 7: Levantar Servicios
+- Levanta PostgreSQL y FastAPI con docker-compose up -d
+- Tiempo: ~15 segundos
+
+ETAPA 8: Verificar Health Check
+- Verifica que /health responda correctamente
+- Tiempo: ~15 segundos
+
+ETAPA 9: Tests de Integracion
+- Prueba endpoints principales de la API
+- Tiempo: ~10 segundos
+
+ETAPA 10: Backup Base de Datos (solo en main)
+- Crea backup de PostgreSQL antes de deployment
+- Tiempo: ~10 segundos
+
+ETAPA 11: Deploy a Produccion (solo en main)
+- Marca el deployment como exitoso
+- Muestra URLs de acceso
+- Tiempo: instantaneo
+
+TIEMPO TOTAL DEL PIPELINE: ~5-8 minutos
+
+================================================================================
+USO DEL PIPELINE
+================================================================================
+
+EJECUCION AUTOMATICA:
+---------------------
+
+1. Hacer cambios en el codigo
+2. git add .
+3. git commit -m "Agregar nueva funcionalidad"
+4. git push origin main
+
+5. Jenkins detecta el push automaticamente
+6. Pipeline se ejecuta solo
+7. Recibes notificacion cuando termina
+
+EJECUCION MANUAL:
+-----------------
+
+1. Ir a: Jenkins Dashboard
+2. Seleccionar "SISCAL-Pipeline"
+3. Clic en "Build Now"
+4. Ver progreso en "Build History"
+5. Clic en el numero del build para ver detalles
+6. Clic en "Console Output" para ver logs en tiempo real
+
+
+VER RESULTADOS:
+---------------
+
+En Jenkins Dashboard:
+- Verde = Exitoso
+- Rojo = Fallido
+- Amarillo = Inestable
+
+Hacer clic en el build para ver:
+- Tiempo de cada stage
+- Logs detallados
+- Tests ejecutados
+- Artefactos generados
+
+================================================================================
+PIPELINE PARA DIFERENTES ENTORNOS
+================================================================================
+
+DESARROLLO (Branch: develop):
+- Tests mas permisivos
+- Deploy a localhost:8001
+- Sin backup de BD
+- Rebuild automatico al guardar archivos
+
+STAGING (Branch: staging):
+- Tests completos
+- Deploy a servidor de pruebas
+- Backup opcional
+- Requiere aprobacion manual
+
+PRODUCCION (Branch: main):
+- Tests exhaustivos
+- Deploy a servidor productivo
+- Backup obligatorio antes de deploy
+- Requiere aprobacion de supervisor
+- Rollback automatico en caso de fallo
+
+Ejemplo de pipeline multi-entorno en Jenkinsfile:
+
+stage('Deploy') {
+    when {
+        branch 'develop'
+    }
+    steps {
+        echo 'Deploying to DEVELOPMENT'
+        sh 'docker-compose -f docker-compose.dev.yml up -d'
+    }
+}
+
+stage('Deploy') {
+    when {
+        branch 'staging'
+    }
+    steps {
+        echo 'Deploying to STAGING'
+        input message: 'Aprobar deploy a staging?'
+        sh 'docker-compose -f docker-compose.staging.yml up -d'
+    }
+}
+
+stage('Deploy') {
+    when {
+        branch 'main'
+    }
+    steps {
+        echo 'Deploying to PRODUCTION'
+        input message: 'Aprobar deploy a produccion?'
+        sh 'docker-compose -f docker-compose.prod.yml up -d'
+    }
+}
+
+================================================================================
+METRICAS Y REPORTES
+================================================================================
+
+Jenkins genera automaticamente:
+
+1. HISTORIAL DE BUILDS
+   - Fecha y hora de cada deployment
+   - Duracion de cada etapa
+   - Quien hizo el commit que disparo el build
+
+2. TENDENCIAS
+   - Grafica de tiempo de build a lo largo del tiempo
+   - Tasa de exito/fallo
+   - Tests que pasan/fallan
+
+3. COVERAGE DE TESTS (con plugins adicionales)
+   - Porcentaje de codigo testeado
+   - Lineas cubiertas/no cubiertas
+
+4. REPORTES DE CALIDAD DE CODIGO
+   - Errores de sintaxis encontrados
+   - Warnings de flake8
+   - Complejidad ciclomatica
+
+Acceder a metricas:
+Jenkins Dashboard → SISCAL-Pipeline → Ver graficas en la pagina principal
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+PROBLEMA: Jenkins no detecta cambios en GitHub
+SOLUCION:
+1. Verificar webhook en GitHub (debe estar en verde)
+2. Verificar que Jenkins sea accesible desde internet
+3. Revisar logs: Manage Jenkins → System Log
+
+PROBLEMA: Pipeline falla en stage "Construir Imagen Docker"
+SOLUCION:
+1. Verificar que Docker este corriendo
+2. Verificar permisos de Jenkins para usar Docker
+   Linux: sudo usermod -aG docker jenkins
+3. Reiniciar Jenkins
+
+PROBLEMA: Puerto 8000 ya en uso
+SOLUCION:
+1. Detener contenedores: docker-compose down
+2. O cambiar puerto en docker-compose.yml
+
+PROBLEMA: Tests fallan
+SOLUCION:
+1. Ejecutar tests localmente primero
+2. Revisar Console Output en Jenkins
+3. Verificar dependencias en requirements.txt
+
+PROBLEMA: No llegan notificaciones por email
+SOLUCION:
+1. Verificar configuracion SMTP
+2. Verificar que Gmail permita "apps menos seguras"
+3. Usar App Password en lugar de password normal
+
+PROBLEMA: Build muy lento
+SOLUCION:
+1. Usar cache de Docker (remover --no-cache)
+2. Ejecutar solo tests necesarios
+3. Paralelizar stages independientes
+4. Usar agentes adicionales
+
+================================================================================
+COMANDOS UTILES
+================================================================================
+
+VER LOGS DE JENKINS (Docker):
+docker logs jenkins -f
+
+REINICIAR JENKINS (Docker):
+docker restart jenkins
+
+ACCEDER A JENKINS SHELL (Docker):
+docker exec -it jenkins bash
+
+BACKUP DE CONFIGURACION DE JENKINS:
+docker cp jenkins:/var/jenkins_home/jobs ./jenkins_backup
+
+RESTAURAR CONFIGURACION:
+docker cp ./jenkins_backup jenkins:/var/jenkins_home/jobs
+
+LIMPIAR WORKSPACE MANUALMENTE:
+En Jenkins → SISCAL-Pipeline → Workspace → Wipe Out Workspace
+
+FORZAR RE-BUILD:
+En Jenkins → SISCAL-Pipeline → Build Now (sin esperar push)
+
+================================================================================
+MEJORES PRACTICAS
+================================================================================
+
+1. MANTENER JENKINSFILE EN EL REPOSITORIO
+   - Versionado junto con el codigo
+   - Cambios en pipeline son auditables
+
+2. USAR ETAPAS PEQUEÑAS Y ESPECIFICAS
+   - Mas facil identificar donde falla
+   - Mejor visibilidad del progreso
+
+3. TESTS RAPIDOS PRIMERO
+   - Lint y tests unitarios antes de build
+   - Fallo rapido ahorra tiempo
+
+4. BACKUP ANTES DE DEPLOY
+   - Siempre en produccion
+   - Facilita rollback
+
+5. NOTIFICACIONES SOLO EN FALLOS
+   - No saturar al equipo
+   - Notificar cambios en main
+
+6. CLEANUP AUTOMATICO
+   - Borrar workspaces viejos
+   - Limpiar imagenes Docker antiguas
+
+7. USAR CREDENCIALES SEGURAS
+   - No hardcodear passwords
+   - Usar Jenkins Credentials Store
+
+8. DOCUMENTAR EL PIPELINE
+   - Comentarios en Jenkinsfile
+   - README con instrucciones
+
+================================================================================
+EJEMPLO DE FLUJO COMPLETO
+================================================================================
+
+ESCENARIO: Desarrollador agrega nueva funcionalidad
+
+DIA 1 - 09:00 AM:
+[Desarrollador]
+1. git checkout -b feature/nuevo-endpoint
+2. Edita app/api/v1/routes_info.py
+3. Agrega nuevo endpoint GET /api/v1/info/clientes
+4. git add .
+5. git commit -m "Agregar endpoint de clientes"
+6. git push origin feature/nuevo-endpoint
+
+[Jenkins]
+- No hace nada (branch no es main)
+
+DIA 1 - 11:00 AM:
+[Desarrollador]
+1. Crea Pull Request en GitHub
+2. Pide revision al supervisor
+
+[Supervisor]
+1. Revisa codigo
+2. Aprueba PR
+3. Merge to main
+
+[Jenkins - AUTOMATICO]
+09:00:01 - Webhook recibe notificacion de push a main
+09:00:02 - Inicia build #47
+09:00:03 - Stage 1: Checkout (10s) ✓
+09:00:13 - Stage 2: Verificar Dependencias (5s) ✓
+09:00:18 - Stage 3: Linting (30s) ✓
+09:00:48 - Stage 4: Tests Unitarios (90s) ✓
+09:02:18 - Stage 5: Detener Contenedores (10s) ✓
+09:02:28 - Stage 6: Construir Imagen (180s) ✓
+09:05:28 - Stage 7: Levantar Servicios (15s) ✓
+09:05:43 - Stage 8: Health Check (15s) ✓
+09:05:58 - Stage 9: Tests Integracion (10s) ✓
+09:06:08 - Stage 10: Backup BD (10s) ✓
+09:06:18 - Stage 11: Deploy Produccion ✓
+09:06:19 - Build #47 EXITOSO
+
+[Email al equipo]
+Asunto: ✅ SISCAL - Deploy Exitoso #47
+Cuerpo: El pipeline se completo exitosamente.
+        Tiempo total: 6 minutos 16 segundos
+        URL: http://localhost:8000
+
+TIEMPO TOTAL DEL DESARROLLADOR: 2 minutos (editar + commit + push)
+TIEMPO SIN JENKINS: 15 minutos (todo manual + verificaciones)
+AHORRO: 13 minutos (87%)
+
+================================================================================
+RECURSOS ADICIONALES
+================================================================================
+
+Documentacion oficial de Jenkins:
+https://www.jenkins.io/doc/
+
+Jenkins Pipeline Syntax:
+https://www.jenkins.io/doc/book/pipeline/syntax/
+
+Docker con Jenkins:
+https://www.jenkins.io/doc/book/installing/docker/
+
+Plugins de Jenkins:
+https://plugins.jenkins.io/
+
+Tutoriales de CI/CD:
+https://www.jenkins.io/doc/tutorials/
+
+================================================================================
+CONTACTO Y SOPORTE
+================================================================================
+
+Para consultas sobre Jenkins en el proyecto SISCAL:
+Equipo de DevOps - Luz del Sur
+Email: devops@luzdelsur.com.pe
+
+GitHub: https://github.com/Mikhael16/SI806_SISCAL_PC03
+
+================================================================================
+LICENCIA
+================================================================================
+
+Copyright 2025 Luz del Sur. Todos los derechos reservados.
+
+Jenkins es software libre bajo licencia MIT.

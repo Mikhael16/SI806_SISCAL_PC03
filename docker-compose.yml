@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # Servicio de Base de Datos PostgreSQL
+  postgres:
+    image: postgres:14
+    container_name: siscal-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: si806
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/01_schema_postgres.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./sql/02_seed_postgres.sql:/docker-entrypoint-initdb.d/02_seed.sql
+    networks:
+      - siscal-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Servicio de Aplicacion Web
+  web:
+    build: .
+    container_name: siscal-web
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=docker_secret_key_cambiar_en_produccion_123456789
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=15
+      - DB_ENGINE=postgres
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=si806
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - siscal-network
+
+volumes:
+  postgres_data:
+
+networks:
+  siscal-network:
+    driver: bridge

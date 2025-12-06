@@ -7,6 +7,13 @@ Sistema de autenticacion JWT con arquitectura por capas, panel de servicios y ge
 
 ## REQUISITOS DEL SISTEMA
 
+### OPCION 1: Instalacion con Docker (RECOMENDADO)
+
+- Docker Desktop (Windows/Mac) o Docker Engine (Linux)
+- docker-compose
+
+### OPCION 2: Instalacion Tradicional
+
 - Python 3.8 o superior
 - PostgreSQL 12 o superior
 - pip (gestor de paquetes de Python)
@@ -14,7 +21,94 @@ Sistema de autenticacion JWT con arquitectura por capas, panel de servicios y ge
 
 ---
 
-## GUIA DE INSTALACION COMPLETA
+## INSTALACION RAPIDA CON DOCKER (RECOMENDADO)
+
+Docker permite ejecutar el proyecto completo con un solo comando, sin instalar Python ni PostgreSQL manualmente.
+
+### PASO 1: Instalar Docker
+
+**Windows/Mac:**
+1. Descargar Docker Desktop: https://www.docker.com/products/docker-desktop
+2. Ejecutar instalador
+3. Reiniciar computadora
+4. Abrir Docker Desktop
+
+**Linux:**
+```bash
+sudo apt-get update
+sudo apt-get install docker.io docker-compose
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
+```
+
+### PASO 2: Verificar Instalacion
+
+```powershell
+docker --version
+docker-compose --version
+```
+
+### PASO 3: Extraer y Navegar al Proyecto
+
+```powershell
+cd C:\Users\Usuario\Desktop\SI806_SISCAL
+```
+
+### PASO 4: Levantar Servicios
+
+```powershell
+docker-compose up
+```
+
+Esto automaticamente:
+- Descarga PostgreSQL 14
+- Crea base de datos si806
+- Ejecuta scripts SQL (tablas + roles)
+- Inicia servidor FastAPI en http://localhost:8000
+
+### PASO 5: Acceder al Sistema
+
+Abrir navegador:
+- **Login:** http://localhost:8000/index.html
+- **Panel:** http://localhost:8000/panel.html
+- **API Docs:** http://localhost:8000/docs
+
+### PASO 6: Detener Servicios
+
+Presionar `CTRL + C` en la terminal, o ejecutar:
+
+```powershell
+docker-compose down
+```
+
+### Comandos Utiles de Docker
+
+```powershell
+# Iniciar en segundo plano
+docker-compose up -d
+
+# Ver logs
+docker-compose logs -f
+
+# Detener servicios
+docker-compose down
+
+# Reiniciar servicios
+docker-compose restart
+
+# Ver estado
+docker-compose ps
+
+# Eliminar todo (incluye base de datos)
+docker-compose down -v
+```
+
+**Nota:** Para mas detalles sobre Docker, consultar el archivo `DOCKER_GUIA.txt`.
+
+---
+
+## GUIA DE INSTALACION TRADICIONAL (SIN DOCKER)
 
 ### PASO 1: Verificar Python
 

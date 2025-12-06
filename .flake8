@@ -1,0 +1,16 @@
+[flake8]
+# Configuración de flake8 para validación de código
+max-line-length = 120
+exclude =
+    .git,
+    __pycache__,
+    venv,
+    env,
+    .venv,
+    build,
+    dist,
+    *.egg-info
+ignore =
+    E501,  # line too long (manejado por max-line-length)
+    W503,  # line break before binary operator
+    E203,  # whitespace before ':'

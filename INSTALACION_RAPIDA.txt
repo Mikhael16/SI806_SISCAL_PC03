@@ -3,6 +3,88 @@ SISCAL - SISTEMA DE GESTION DE RECLAMOS - LUZ DEL SUR
 GUIA DE INSTALACION RAPIDA
 ================================================================================
 
+OPCION 1: INSTALACION CON DOCKER (RECOMENDADO)
+OPCION 2: INSTALACION TRADICIONAL
+
+================================================================================
+
+================================================================================
+OPCION 1: INSTALACION CON DOCKER (MAS RAPIDO)
+================================================================================
+
+REQUISITOS:
+- Docker Desktop instalado (Windows/Mac) o Docker Engine (Linux)
+- docker-compose instalado
+
+VENTAJAS:
+- No requiere instalar Python ni PostgreSQL manualmente
+- Todo funciona con 1 comando
+- Base de datos se configura automaticamente
+- Mismo entorno en desarrollo y produccion
+
+PASO 1: INSTALAR DOCKER
+------------------------
+
+Windows/Mac:
+1. Descargar: https://www.docker.com/products/docker-desktop
+2. Instalar y reiniciar
+3. Abrir Docker Desktop
+
+Linux:
+sudo apt-get update
+sudo apt-get install docker.io docker-compose
+sudo systemctl start docker
+
+PASO 2: VERIFICAR INSTALACION
+------------------------------
+
+docker --version
+docker-compose --version
+
+PASO 3: NAVEGAR AL PROYECTO
+----------------------------
+
+cd C:\Users\Usuario\Desktop\SI806_SISCAL
+
+PASO 4: LEVANTAR SERVICIOS
+---------------------------
+
+docker-compose up
+
+Esto automaticamente:
+- Descarga PostgreSQL 14
+- Crea base de datos si806
+- Ejecuta scripts SQL
+- Inicia FastAPI en puerto 8000
+
+PASO 5: ACCEDER AL SISTEMA
+---------------------------
+
+Abrir navegador:
+http://localhost:8000/index.html
+
+PASO 6: DETENER SERVICIOS
+--------------------------
+
+Presionar CTRL + C
+
+O ejecutar:
+docker-compose down
+
+COMANDOS UTILES:
+
+docker-compose up -d          # Iniciar en background
+docker-compose logs -f        # Ver logs
+docker-compose down           # Detener
+docker-compose restart        # Reiniciar
+docker-compose ps             # Ver estado
+
+Para mas detalles: Ver archivo DOCKER_GUIA.txt
+
+================================================================================
+OPCION 2: INSTALACION TRADICIONAL (SIN DOCKER)
+================================================================================
+
 REQUISITOS:
 - Python 3.8+
 - PostgreSQL 12+
