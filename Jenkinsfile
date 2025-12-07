@@ -33,25 +33,26 @@ pipeline {
         
         stage('Detener Contenedores Antiguos') {
             steps {
-                echo '========== ETAPA 3: Deteniendo contenedores antiguos =========='
+                echo "========== ETAPA 3: Limpiando contenedores antiguos =========="
                 sh '''
-                    echo "Deteniendo contenedores previos..."
-                    docker-compose down || true
+                    echo "Deteniendo servicios existentes..."
+                    docker-compose -f docker-compose.jenkins.yml down || true
                     echo "Limpiando contenedores huérfanos..."
                     docker container prune -f || true
                 '''
-                echo '✅ Contenedores antiguos detenidos'
+                echo "✅ Contenedores antiguos eliminados"
             }
         }
         
         stage('Construir Imagen Docker') {
             steps {
-                echo '========== ETAPA 4: Construyendo imagen Docker =========='
+                echo "========== ETAPA 4: Construyendo imagen Docker =========="
                 sh '''
-                    echo "Construyendo imagen siscal-app..."
-                    docker-compose build --no-cache
+                    echo "Workspace: $WORKSPACE"
+                    echo "Construyendo imagen sin caché..."
+                    docker-compose -f docker-compose.jenkins.yml build --no-cache
                 '''
-                echo '✅ Imagen construida exitosamente'
+                echo "✅ Imagen construida exitosamente"
             }
         }
         
@@ -59,8 +60,8 @@ pipeline {
             steps {
                 echo '========== ETAPA 5: Levantando servicios =========='
                 sh '''
-                    echo "Desplegando contenedores..."
-                    docker-compose up -d
+                    echo "Desplegando contenedores con WORKSPACE=$WORKSPACE..."
+                    docker-compose -f docker-compose.jenkins.yml up -d
                     echo "Esperando a que los servicios inicien..."
                     sleep 15
                 '''
@@ -90,15 +91,15 @@ pipeline {
                 echo '========== ETAPA 7: Estado de contenedores =========='
                 sh '''
                     echo "Contenedores en ejecución:"
-                    docker-compose ps
+                    docker-compose -f docker-compose.jenkins.yml ps
                     
                     echo ""
                     echo "Logs de PostgreSQL (últimas 10 líneas):"
-                    docker-compose logs --tail=10 postgres
+                    docker-compose -f docker-compose.jenkins.yml logs --tail=10 postgres
                     
                     echo ""
                     echo "Logs de Web (últimas 10 líneas):"
-                    docker-compose logs --tail=10 web
+                    docker-compose -f docker-compose.jenkins.yml logs --tail=10 web
                 '''
                 echo '✅ Estado verificado'
             }
@@ -157,7 +158,7 @@ pipeline {
                 echo '========== ETAPA 10: Desplegando a producción =========='
                 sh '''
                     echo "Verificando que los servicios están corriendo..."
-                    docker-compose ps | grep "Up" || exit 1
+                    docker-compose -f docker-compose.jenkins.yml ps | grep "Up" || exit 1
                     
                     echo "✅ Aplicación desplegada en producción"
                     echo "URL: http://localhost:8000"
@@ -182,7 +183,7 @@ pipeline {
             echo '   - Docs: http://localhost:8000/docs'
             echo '   - DB: PostgreSQL en localhost:5432'
             echo ''
-            sh 'docker-compose ps'
+            sh 'docker-compose -f docker-compose.jenkins.yml ps'
         }
         failure {
             echo '=========================================='
@@ -192,7 +193,7 @@ pipeline {
             echo 'Revisar logs para identificar el problema'
             sh '''
                 echo "Logs de contenedores:"
-                docker-compose logs --tail=20 || true
+                docker-compose -f docker-compose.jenkins.yml logs --tail=20 || true
             '''
         }
         always {

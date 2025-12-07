@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # Servicio de Base de Datos PostgreSQL
+  postgres:
+    image: postgres:14
+    container_name: siscal-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: si806
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Usar paths absolutos desde Jenkins workspace
+      - ${WORKSPACE}/sql/01_schema_postgres.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ${WORKSPACE}/sql/02_seed_postgres.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    networks:
+      - siscal-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Servicio de Aplicacion Web
+  web:
+    build:
+      context: ${WORKSPACE}
+      dockerfile: Dockerfile
+    container_name: siscal-web
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    env_file:
+      - ${WORKSPACE}/.env
+    networks:
+      - siscal-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${WORKSPACE}/app:/app/app:ro
+
+# Red personalizada
+networks:
+  siscal-network:
+    name: siscal-network
+    driver: bridge
+
+# Volúmenes persistentes
+volumes:
+  postgres_data:
+    name: siscal_postgres_data
