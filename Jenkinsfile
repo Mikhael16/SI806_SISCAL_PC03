@@ -77,10 +77,10 @@ pipeline {
                     docker exec siscal-postgres pg_isready -U postgres || exit 1
                     
                     echo "Verificando API FastAPI..."
-                    curl -f http://localhost:8000/docs || exit 1
+                    docker exec siscal-web curl -s -f http://localhost:8000/docs || exit 1
                     
                     echo "Verificando endpoint raíz..."
-                    curl -f http://localhost:8000/ || exit 1
+                    docker exec siscal-web curl -s -f http://localhost:8000/ | grep -q "SISCAL" || exit 1
                 '''
                 echo '✅ Aplicación respondiendo correctamente'
             }
@@ -113,15 +113,15 @@ pipeline {
                     
                     # Test 1: Endpoint de documentación
                     echo "Test 1: GET /docs"
-                    curl -s http://localhost:8000/docs | grep -q "FastAPI" && echo "✅ Docs OK" || echo "❌ Docs FAIL"
+                    docker exec siscal-web curl -s http://localhost:8000/docs | grep -q "FastAPI" && echo "✅ Docs OK" || echo "❌ Docs FAIL"
                     
                     # Test 2: Endpoint raíz
                     echo "Test 2: GET /"
-                    curl -s http://localhost:8000/ | grep -q "SISCAL" && echo "✅ Root OK" || echo "❌ Root FAIL"
+                    docker exec siscal-web curl -s http://localhost:8000/ | grep -q "SISCAL" && echo "✅ Root OK" || echo "❌ Root FAIL"
                     
                     # Test 3: Health check
                     echo "Test 3: GET /health (si existe)"
-                    curl -s http://localhost:8000/health || echo "⚠️ Health endpoint no implementado"
+                    docker exec siscal-web curl -s http://localhost:8000/health || echo "⚠️ Health endpoint no implementado"
                     
                     echo "Tests de integración completados"
                 '''

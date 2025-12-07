@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     libpq-dev \
     gcc \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar archivo de dependencias
