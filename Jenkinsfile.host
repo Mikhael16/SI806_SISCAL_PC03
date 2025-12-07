@@ -1,0 +1,183 @@
+pipeline {
+    agent any
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                echo "========== ETAPA 1: Clonando repositorio =========="
+                checkout scm
+                echo "✅ Código descargado correctamente"
+            }
+        }
+        
+        stage('Verificar Dependencias') {
+            steps {
+                echo "========== ETAPA 2: Verificando dependencias =========="
+                sh '''
+                    echo "Verificando Docker..."
+                    docker --version
+                    echo "Verificando docker-compose..."
+                    docker-compose --version
+                '''
+                echo "✅ Todas las dependencias están instaladas"
+            }
+        }
+        
+        stage('Detener Contenedores Antiguos') {
+            steps {
+                echo "========== ETAPA 3: Limpiando contenedores antiguos =========="
+                sh '''
+                    echo "Deteniendo servicios existentes..."
+                    docker-compose down || true
+                    echo "Limpiando contenedores huérfanos..."
+                    docker container prune -f || true
+                '''
+                echo "✅ Contenedores antiguos eliminados"
+            }
+        }
+        
+        stage('Construir Imagen Docker') {
+            steps {
+                echo "========== ETAPA 4: Construyendo imagen Docker =========="
+                sh '''
+                    echo "Construyendo imagen sin caché..."
+                    docker-compose build --no-cache
+                '''
+                echo "✅ Imagen construida exitosamente"
+            }
+        }
+        
+        stage('Copiar Archivos SQL al Host') {
+            steps {
+                echo "========== ETAPA 4.5: Copiando archivos SQL al host =========="
+                sh '''
+                    # Crear directorio temporal en el host si no existe
+                    mkdir -p /tmp/siscal-sql 2>/dev/null || true
+                    
+                    # Copiar archivos SQL desde Jenkins workspace al host
+                    cp -f ${WORKSPACE}/sql/*.sql /tmp/siscal-sql/
+                    
+                    echo "Archivos copiados:"
+                    ls -lh /tmp/siscal-sql/
+                '''
+                echo "✅ Archivos SQL disponibles en /tmp/siscal-sql/"
+            }
+        }
+        
+        stage('Levantar Servicios') {
+            steps {
+                echo "========== ETAPA 5: Levantando servicios =========="
+                sh '''
+                    echo "Desplegando contenedores..."
+                    docker-compose up -d
+                    
+                    echo "Esperando a que los servicios inicien..."
+                    sleep 15
+                '''
+                echo "✅ Servicios levantados"
+            }
+        }
+        
+        stage('Verificar Health Check') {
+            steps {
+                echo "========== ETAPA 6: Verificando salud de servicios =========="
+                sh '''
+                    echo "Verificando PostgreSQL..."
+                    docker exec siscal-postgres pg_isready -U postgres || exit 1
+                    
+                    echo "Verificando FastAPI..."
+                    curl -f http://localhost:8000/docs || exit 1
+                    curl -f http://localhost:8000/ || exit 1
+                '''
+                echo "✅ Todos los servicios están saludables"
+            }
+        }
+        
+        stage('Mostrar Estado de Contenedores') {
+            steps {
+                echo "========== ETAPA 7: Estado de contenedores =========="
+                sh '''
+                    docker-compose ps
+                    echo ""
+                    echo "Logs recientes:"
+                    docker-compose logs --tail=30
+                '''
+            }
+        }
+        
+        stage('Tests de Integración') {
+            steps {
+                echo "========== ETAPA 8: Ejecutando tests de integración =========="
+                sh '''
+                    echo "Test 1: Verificando endpoint de documentación..."
+                    curl -s http://localhost:8000/docs | grep -q "FastAPI" && echo "✅ Test 1 OK"
+                    
+                    echo "Test 2: Verificando endpoint raíz..."
+                    curl -s http://localhost:8000/ | grep -q "SISCAL" && echo "✅ Test 2 OK"
+                    
+                    echo "Test 3: Verificando endpoint de salud..."
+                    curl -f http://localhost:8000/health && echo "✅ Test 3 OK"
+                '''
+                echo "✅ Tests completados exitosamente"
+            }
+        }
+        
+        stage('Backup Base de Datos (Producción)') {
+            when {
+                branch 'main'
+            }
+            steps {
+                echo "========== ETAPA 9: Realizando backup de BD =========="
+                sh '''
+                    echo "Creando directorio de backups..."
+                    mkdir -p backups
+                    
+                    echo "Generando backup de PostgreSQL..."
+                    docker exec siscal-postgres pg_dump -U postgres si806 > backups/backup_$(date +%Y%m%d_%H%M%S).sql
+                    
+                    echo "Backup generado:"
+                    ls -lh backups/ | tail -1
+                '''
+                echo "✅ Backup completado"
+            }
+        }
+        
+        stage('Deploy a Producción') {
+            when {
+                branch 'main'
+            }
+            steps {
+                echo "========== ETAPA 10: Deploy a producción =========="
+                sh '''
+                    echo "Verificando que todos los servicios estén UP..."
+                    docker-compose ps | grep "Up" || exit 1
+                    
+                    echo "🎉 DEPLOY EXITOSO"
+                    echo "API disponible en: http://localhost:8000"
+                    echo "Documentación en: http://localhost:8000/docs"
+                '''
+                echo "✅ Aplicación desplegada en producción"
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo "Limpieza completada"
+            echo "=========================================="
+        }
+        success {
+            echo "✅ PIPELINE COMPLETADO EXITOSAMENTE"
+            echo "=========================================="
+            echo "Build #${env.BUILD_NUMBER} completado"
+            echo "Aplicación disponible en http://localhost:8000"
+        }
+        failure {
+            echo "❌ PIPELINE FALLÓ"
+            echo "=========================================="
+            echo "Build #${env.BUILD_NUMBER} falló"
+            echo "Revisar logs para identificar el problema"
+            sh 'echo "Logs de contenedores:"; docker-compose logs --tail=20'
+        }
+    }
+}

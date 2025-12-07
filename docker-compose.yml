@@ -15,6 +15,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./sql/01_schema_postgres.sql:/docker-entrypoint-initdb.d/01_schema.sql
       - ./sql/02_seed_postgres.sql:/docker-entrypoint-initdb.d/02_seed.sql
+      - ./sql/03_usuarios_prueba.sql:/docker-entrypoint-initdb.d/03_usuarios_prueba.sql
     networks:
       - siscal-network
     healthcheck:

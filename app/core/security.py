@@ -5,7 +5,7 @@ Seguridad: JWT y hashing de contraseñas
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -14,21 +14,31 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.repositories.usuarios import UsuariosRepository
 
-# Contexto de hashing con bcrypt
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 # Esquema de seguridad Bearer
 security = HTTPBearer()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifica que una contraseña en texto plano coincida con el hash"""
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        # Convertir contraseña y hash a bytes
+        password_bytes = plain_password.encode('utf-8')
+        hash_bytes = hashed_password.encode('utf-8')
+        
+        # Verificar usando bcrypt directamente
+        return bcrypt.checkpw(password_bytes, hash_bytes)
+    except Exception as e:
+        print(f"Error verificando contraseña: {e}")
+        return False
 
 
 def get_password_hash(password: str) -> str:
     """Genera hash bcrypt de una contraseña"""
-    return pwd_context.hash(password)
+    # Generar salt y hash
+    password_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
